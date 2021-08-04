@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<launch>
+    <rosparam file="$(find walleye_control)/config/control_config.yml" command="load" />
+
+    <node pkg="controller_manager" type="spawner" name="base_control_manager" ns="/walleye" args="/walleye/robot_movement_controller /walleye/joint_state_controller /walleye/pan_position_controller /walleye/tilt_position_controller" output="screen" />
+
+    <node pkg="walleye_control" type="walleye_control_node" name="base_walleye_control_node" ns="/walleye" output="screen" />
+</launch>

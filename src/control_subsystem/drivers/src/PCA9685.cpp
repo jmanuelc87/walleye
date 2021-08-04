@@ -1,4 +1,4 @@
-#include "../include/drivers/PCA9685.hpp"
+#include "drivers/PCA9685.hpp"
 
 // REGISTER ADDRESSES
 #define PCA9685_MODE1 0x00      /**< Mode Register 1 */
@@ -30,183 +30,166 @@
 #define MODE1_RESTART 0x80 /**< Restart enabled */
 // MODE2 bits
 #define MODE2_OUTNE_0 0x01 /**< Active LOW output enable input */
-#define MODE2_OUTNE_1                                                          \
-  0x02 /**< Active LOW output enable input - high impedience */
+#define MODE2_OUTNE_1 \
+    0x02                  /**< Active LOW output enable input - high impedience */
 #define MODE2_OUTDRV 0x04 /**< totem pole structure vs open-drain */
 #define MODE2_OCH 0x08    /**< Outputs change on ACK vs STOP */
 #define MODE2_INVRT 0x10  /**< Output logic state inverted */
 
 #define PCA9685_I2C_ADDRESS 0x40      /**< Default PCA9685 I2C Slave Address */
-#define FREQUENCY_OSCILLATOR 25000000 /**< Int. osc. frequency in datasheet */
+#define FREQUENCY_OSCILLATOR 25000000.0 /**< Int. osc. frequency in datasheet */
 
 #define PCA9685_PRESCALE_MIN 3   /**< minimum prescale value */
 #define PCA9685_PRESCALE_MAX 255 /**< maximum prescale value */
 
 #define I2C_PATH "/dev/i2c-"
 
-PCA9685::PCA9685(int address, uint8_t bus) {
-    this->address = address;
-    this->bus = bus;
+drivers::PCA9685::PCA9685(int address, uint8_t bus)
+{
+    std::string device = I2C_PATH + std::to_string(bus);
+    conn = new I2C_Connection(device.c_str(), address);
 }
 
-PCA9685::~PCA9685() {
-    if (this->i2cHandle)
-    {
-        close(this->i2cHandle);
-    }
-    
+drivers::PCA9685::~PCA9685()
+{
 }
 
-void PCA9685::begin(uint8_t prescale) {
-    std::string i2c = I2C_PATH;
-    std::string busno = std::to_string(this->bus);
+void drivers::PCA9685::begin(uint8_t prescale)
+{
 
-    std::string filename = i2c + busno;
-
-    this->i2cHandle = open(filename.c_str(), O_RDWR);
-
-    if (this->i2cHandle < 0) {
-        throw std::runtime_error("The I2C bus couldn't be opened. finishing.");
-    }
-
-    if (ioctl(this->i2cHandle, I2C_SLAVE, this->address) < 0) {
-        throw std::runtime_error("The I2C bus...");
-    }
+    conn->begin();
 
     this->reset();
 
-    if (prescale) {
+    if (prescale)
+    {
         setExtClk(prescale);
-    } else {
-        setPWMFreq(1000);
+    }
+    else
+    {
+        setPWMFreq(500);
     }
 
     setOscillatorFrequency(FREQUENCY_OSCILLATOR);
 }
 
-void PCA9685::reset() {
-    this->setRegister(PCA9685_MODE1, MODE1_RESTART);
+void drivers::PCA9685::end() {
+    conn->end();
+}
+
+void drivers::PCA9685::reset()
+{
+    this->writeRegister(PCA9685_MODE1, MODE1_RESTART);
     usleep(10);
 }
 
-void PCA9685::sleep() {
-    int awake = getRegister(PCA9685_MODE1);
+void drivers::PCA9685::sleep()
+{
+    uint8_t awake = 0;
+    this->readRegister(PCA9685_MODE1, &awake);
     uint8_t sleep = awake | MODE1_SLEEP;
-    setRegister(PCA9685_MODE1, sleep);
+    this->writeRegister(PCA9685_MODE1, sleep);
 }
 
-void PCA9685::wakeup() {
-    uint8_t sleep = getRegister(PCA9685_MODE1);
+void drivers::PCA9685::wakeup()
+{
+    uint8_t sleep = 0;
+    this->readRegister(PCA9685_MODE1, &sleep);
     uint8_t wakeup = sleep & ~MODE1_SLEEP;
-    setRegister(PCA9685_MODE1, wakeup);
+    this->writeRegister(PCA9685_MODE1, wakeup);
 }
 
-void PCA9685::setExtClk(uint8_t prescale) {
-    uint8_t oldmode = getRegister(PCA9685_MODE1);
+void drivers::PCA9685::setExtClk(uint8_t prescale)
+{
+    uint8_t oldmode = 0;
+    this->readRegister(PCA9685_MODE1, &oldmode);
     uint8_t newmode = (oldmode & ~MODE1_RESTART) | MODE1_SLEEP;
-    setRegister(PCA9685_MODE1, newmode);
+    this->writeRegister(PCA9685_MODE1, newmode);
 
-    setRegister(PCA9685_MODE1, (newmode |= MODE1_EXTCLK));
+    writeRegister(PCA9685_MODE1, (newmode |= MODE1_EXTCLK));
 
-    setRegister(PCA9685_PRESCALE, prescale);
+    writeRegister(PCA9685_PRESCALE, prescale);
 
     usleep(5);
 
-    setRegister(PCA9685_MODE1, (newmode & ~MODE1_SLEEP) | MODE1_RESTART | MODE1_AI);
+    writeRegister(PCA9685_MODE1, (newmode & ~MODE1_SLEEP) | MODE1_RESTART | MODE1_AI);
 }
 
+void drivers::PCA9685::setPWMFreq(double freq)
+{
+    double prescaleval = FREQUENCY_OSCILLATOR;
+    prescaleval /= 4096.0;
+    prescaleval /= freq;
+    prescaleval -= 1.0;
 
-void PCA9685::setPWMFreq(double freq) {
-    if (freq < 1) freq = 1;
-    if (freq > 3500) freq = 3500;
+    uint8_t prescale = (uint8_t) floor(prescaleval + 0.5);
 
-    double prescaleval = ((oscillator_freq / (freq * 4096.0)) + 0.5) - 1;
-    if (prescaleval < PCA9685_PRESCALE_MIN) prescaleval = PCA9685_PRESCALE_MIN;
-    if (prescaleval > PCA9685_PRESCALE_MAX) prescaleval = PCA9685_PRESCALE_MAX;
+    if (prescale < PCA9685_PRESCALE_MIN) prescale = PCA9685_PRESCALE_MIN;
+    if (prescale > PCA9685_PRESCALE_MAX) prescale = PCA9685_PRESCALE_MAX;
 
-    uint8_t prescale = prescaleval;
-
-    uint8_t oldmode = getRegister(PCA9685_MODE1);
+    uint8_t oldmode = 0;
+    readRegister(PCA9685_MODE1, &oldmode);
     uint8_t newmode = (oldmode & ~MODE1_RESTART) | MODE1_SLEEP;
-    setRegister(PCA9685_MODE1, newmode);
-    setRegister(PCA9685_PRESCALE, prescale);
-    setRegister(PCA9685_MODE1, oldmode);
+    writeRegister(PCA9685_MODE1, newmode);
+    writeRegister(PCA9685_PRESCALE, prescale);
+    writeRegister(PCA9685_MODE1, oldmode);
     usleep(5);
 
-    setRegister(PCA9685_MODE1, oldmode | MODE1_RESTART | MODE1_AI);
+    writeRegister(PCA9685_MODE1, oldmode | MODE1_RESTART | MODE1_AI);
 }
 
-
-void PCA9685::setOutputMode(bool totempole) {
-    uint8_t oldmode = getRegister(PCA9685_MODE2);
+void drivers::PCA9685::setOutputMode(bool totempole)
+{
+    uint8_t oldmode = 0;
+    readRegister(PCA9685_MODE2, &oldmode);
     uint8_t newmode;
-    if (totempole) {
+    if (totempole)
+    {
         newmode = oldmode | MODE2_OUTDRV;
-    } else {
+    }
+    else
+    {
         newmode = oldmode & ~MODE2_OUTDRV;
     }
-    setRegister(PCA9685_MODE2, newmode);
+    writeRegister(PCA9685_MODE2, newmode);
 }
 
-uint16_t PCA9685::getPWM(uint8_t channel) {
-    uint8_t buff[1] = {
-        (uint8_t) (PCA9685_LED0_ON_L + 4 * channel)
-    };
-
-    if (write(this->i2cHandle, buff, 1) != 1) {
-        throw std::runtime_error("fail read 1");
+void drivers::PCA9685::setPWM(uint8_t channel, uint16_t on, uint16_t off)
+{
+    if (channel > 15)
+    {
+        std::string msg = "Channel out of bounds, limit is 15 current: " + std::to_string(channel);
+        throw std::runtime_error(msg);
     }
 
-    uint16_t buf[1];
+    auto lowON = (uint8_t)(on & 0xFF);
+    auto highON = (uint8_t)((on >> 8) & 0xFF);
 
-    if (read(this->i2cHandle, buf, 1) != 1) {
-        throw std::runtime_error("fail to read 2");
-    }
+    auto lowOFF = (uint8_t)(off & 0xFF);
+    auto highOFF = (uint8_t)((off >> 8) & 0xFF);
 
-    return buf[0];
+    writeRegister((uint8_t)(PCA9685_LED0_ON_L + (channel * 4)), lowON);
+    writeRegister((uint8_t)(PCA9685_LED0_ON_L + (channel * 4) + 1), highON);
+    writeRegister((uint8_t)(PCA9685_LED0_ON_L + (channel * 4) + 2), lowOFF);
+    writeRegister((uint8_t)(PCA9685_LED0_ON_L + (channel * 4) + 3), highOFF);
 }
 
-void PCA9685::setPWM(uint8_t channel, uint16_t on, uint16_t off) {
-    if (channel > 15) {
-        throw std::domain_error("Channel is too large");
-    }
-
-    auto lowON = (uint8_t) (on & 0xFF);
-    auto highON = (uint8_t) ((on >> 8) & 0xFF);
-
-    auto lowOFF = (uint8_t) (off & 0xFF);
-    auto highOFF = (uint8_t) ((off >> 8) & 0xFF);
-
-    setRegister((uint8_t) (PCA9685_LED0_ON_L + (channel * 4)), lowON);
-    setRegister((uint8_t) (PCA9685_LED0_ON_L + (channel * 4) + 1), highON);
-    setRegister((uint8_t) (PCA9685_LED0_ON_L + (channel * 4) + 2), lowOFF);
-    setRegister((uint8_t) (PCA9685_LED0_ON_L + (channel * 4) + 3), highOFF);
-}
-
-void PCA9685::setOscillatorFrequency(uint32_t freq) {
+void drivers::PCA9685::setOscillatorFrequency(uint32_t freq)
+{
     this->oscillator_freq = freq;
 }
 
-void PCA9685::setRegister(uint8_t reg, uint8_t val) {
-    uint8_t packet[2] = {
-            reg,
-            val
-    };
-    if (write(this->i2cHandle, packet, 2) != 2) {
-        throw std::runtime_error("fail write");
-    }
+void drivers::PCA9685::writeRegister(uint8_t reg, uint8_t value)
+{
+    uint8_t buff[2] = {
+        reg, value};
+
+    conn->write8(buff, sizeof(buff));
 }
 
-int PCA9685::getRegister(uint8_t reg) {
-    uint8_t buf[1] = {
-            reg
-    };
-
-    if (write(this->i2cHandle, buf, 1) != 1) {
-        throw std::runtime_error("fail read 1");
-    }
-    if (read(this->i2cHandle, buf, 1) != 1) {
-        throw std::runtime_error("fail read 2");
-    }
-    return buf[0];
+void drivers::PCA9685::readRegister(uint8_t reg, uint8_t *value)
+{
+    uint8_t reg2 = reg;
+    conn->write8(&reg2, sizeof(reg2));
+    conn->read8(value, sizeof(value));
 }
