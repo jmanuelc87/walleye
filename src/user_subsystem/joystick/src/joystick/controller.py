@@ -23,7 +23,7 @@ class ControlDefinition(Enum):
 
 class Controller(object):
 
-    def __init__(self, topic: str) -> None:
+    def __init__(self, topic):
         self.subscriber = rospy.Subscriber(
             topic, Joy, callback=self.__control_subscriber, queue_size=1000)
         self.listeners = {}
@@ -32,28 +32,28 @@ class Controller(object):
     def __del__(self):
         self.subscriber.unregister()
 
-    def addListener(self, definition: ControlDefinition, listener: Listener) -> None:
-        message: Joy = Joy()
+    def addListener(self, definition, listener):
+        message = Joy()
         message.buttons = [0 for i in range(12)]
         message.axes = [0 for i in range(12)]
 
         self.listeners[definition] = [listener, message, False, False]
 
-    def __is_new(self, current: Joy, last: Joy) -> bool:
+    def __is_new(self, current, last):
         return current.header.seq > last.header.seq
 
-    def __perform_axis_listener(self, message: Joy, key: ControlDefinition):
-        curr_listener: AxisListener = self.listeners[key][0]
-        last_msg: Joy = self.listeners[key][1]
+    def __perform_axis_listener(self, message, key):
+        curr_listener = self.listeners[key][0]
+        last_msg = self.listeners[key][1]
         x = message.axes[key.value[0][0]]
         y = message.axes[key.value[0][1]]
         
         if last_msg.axes[key.value[0][0]] != x or last_msg.axes[key.value[0][1]] != y:
             curr_listener.onAxisMoveAction(x, y)
 
-    def __perform_event_listener(self, message: Joy, key: ControlDefinition):
-        curr_listener: EventListener = self.listeners[key][0]
-        last_msg: Joy = self.listeners[key][1]
+    def __perform_event_listener(self, message, key):
+        curr_listener = self.listeners[key][0]
+        last_msg = self.listeners[key][1]
 
         if last_msg.buttons[key.value] != message.buttons[key.value] and message.buttons[key.value] == HIGH:
             curr_listener.onButtonDown()
@@ -68,7 +68,7 @@ class Controller(object):
             self.listeners[key][2] = False
             self.listeners[key][3] = False
 
-    def __control_subscriber(self, message: Joy) -> None:
+    def __control_subscriber(self, message):
         for key in self.listeners.keys():
             current_listener = self.listeners[key]
 

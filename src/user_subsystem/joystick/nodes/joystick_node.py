@@ -12,20 +12,20 @@ from joystick import Controller, ControlDefinition, EventListener, AxisListener
 
 class TiltListener(EventListener):
 
-    def __init__(self) -> None:
+    def __init__(self):
         self.message_pub = rospy.Publisher(
             "/walleye/tilt_position_controller/command", Float64, queue_size=10)
         self.tilt = [120.0, 150.0, 200.0]
         self.index = 0
 
-    def onButtonDown(self) -> None:
+    def onButtonDown(self):
         pass
 
-    def onButtonUp(self) -> None:
+    def onButtonUp(self):
         pass
 
-    def onButtonPress(self) -> None:
-        msg: Float64 = Float64(self.tilt[self.index])
+    def onButtonPress(self):
+        msg = Float64(self.tilt[self.index])
 
         self.message_pub.publish(msg)
 
@@ -34,11 +34,11 @@ class TiltListener(EventListener):
 
 class PositionMoveListener(AxisListener):
 
-    def __init__(self) -> None:
+    def __init__(self):
         self.publisher = rospy.Publisher(
             '/walleye/robot_movement_controller/cmd_vel', Twist, queue_size=100)
 
-    def onAxisMoveAction(self, x, y) -> None:
+    def onAxisMoveAction(self, x, y):
         norm = self.__calculate__norm(x, y)
         theta = self.__calculate_theta(x, y)
 
@@ -64,17 +64,17 @@ class PositionMoveListener(AxisListener):
 
 class PanListener(AxisListener):
 
-    def __init__(self) -> None:
+    def __init__(self):
         self.message_pub = rospy.Publisher(
             "/walleye/pan_position_controller/command", Float64, queue_size=10)
 
     def __map(self, x, x1, x2, y1, y2):
         return (((x - x1) / (x2 - x1)) * (y2 - y1)) + y1
 
-    def onAxisMoveAction(self, x, y) -> None:
-        degress: float = round(self.__map(x, -1.0, 1.0, 0, 360), 3)
+    def onAxisMoveAction(self, x, y):
+        degress = round(self.__map(x, -1.0, 1.0, 0, 360), 3)
 
-        msg: Float64 = Float64(degress)
+        msg = Float64(degress)
 
         self.message_pub.publish(msg)
 

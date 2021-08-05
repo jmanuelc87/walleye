@@ -59,3 +59,11 @@ CATKIN_IGNORE
 
 # snapcraft builds
 *.snap
+
+# cross compile
+build_*/
+cc_internals/
+install_*/
+
+# logs
+log/

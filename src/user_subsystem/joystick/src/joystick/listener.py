@@ -8,20 +8,20 @@ class Listener(ABC):
 class AxisListener(Listener):
 
     @abstractmethod
-    def onAxisMoveAction(self, x, y) -> None:
+    def onAxisMoveAction(self, x, y):
         pass
 
 
 class EventListener(Listener):
 
     @abstractmethod
-    def onButtonDown(self) -> None:
+    def onButtonDown(self):
         pass
 
     @abstractmethod
-    def onButtonUp(self) -> None:
+    def onButtonUp(self):
         pass
 
     @abstractmethod
-    def onButtonPress(self) -> None:
+    def onButtonPress(self):
         pass
