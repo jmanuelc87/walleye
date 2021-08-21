@@ -67,6 +67,13 @@ install_*/
 
 # logs
 log/
+*.log
+
+# Vagrant
+.vagrant
+
+# Intellij
+.idea
 
 # pycache
 __pycache__

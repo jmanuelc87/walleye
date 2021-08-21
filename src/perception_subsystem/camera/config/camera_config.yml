@@ -1,7 +1,6 @@
 walleye:
   rate: 30
   usecompressed: False
-  use_csi_camera: False
   width: 1280
   height: 1024
   usecalibration: False
