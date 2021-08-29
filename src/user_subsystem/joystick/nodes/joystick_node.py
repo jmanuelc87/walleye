@@ -14,7 +14,7 @@ class TiltListener(EventListener):
 
     def __init__(self):
         self.message_pub = rospy.Publisher(
-            "/walleye/tilt_position_controller/command", Float64, queue_size=10)
+            "/walleye/tilt_position_controller/command", Float64, queue_size=1)
         self.tilt = [120.0, 150.0, 200.0]
         self.index = 0
 
@@ -36,7 +36,7 @@ class PositionMoveListener(AxisListener):
 
     def __init__(self):
         self.publisher = rospy.Publisher(
-            '/walleye/robot_movement_controller/cmd_vel', Twist, queue_size=100)
+            '/walleye/robot_movement_controller/cmd_vel', Twist, queue_size=1)
 
     def onAxisMoveAction(self, x, y):
         norm = self.__calculate__norm(x, y)
@@ -66,7 +66,7 @@ class PanListener(AxisListener):
 
     def __init__(self):
         self.message_pub = rospy.Publisher(
-            "/walleye/pan_position_controller/command", Float64, queue_size=10)
+            "/walleye/pan_position_controller/command", Float64, queue_size=1)
 
     def __map(self, x, x1, x2, y1, y2):
         return (((x - x1) / (x2 - x1)) * (y2 - y1)) + y1

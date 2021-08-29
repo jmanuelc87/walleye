@@ -1,75 +1,117 @@
+#! /usr/bin/env python
 import cv2
 import numpy as np
 import os
 import rospkg
 import rospy
+from camera.srv import ServiceImage
 from cv_bridge import CvBridge, CvBridgeError
+from jetcam import CSICamera
+from jetcam import USBCamera
 from sensor_msgs.msg import Image, CompressedImage
 
 
+def rescaleFrame(frame, scale=0.75):
+    """
+    Resize video or image frame
+    :param frame: the video or image frame
+    :param scale: the value to rescale the image
+    :return: rescaled frame
+    """
+    width = int(frame.shape[1] * scale)
+    height = int(frame.shape[0] * scale)
+    dimensions = (width, height)
+
+    return cv2.resize(frame, dimensions, interpolation=cv2.INTER_AREA)
+
+
 def main():
-  ns = rospy.get_namespace()
+    ns = rospy.get_namespace()
 
-  use_csi_camera = rospy.get_param(ns + "use_csi_camera")
+    use_csi_camera = rospy.get_param(ns + "use_csi_camera")
 
-  width = rospy.get_param(ns + "width")
+    width = rospy.get_param(ns + "width")
 
-  height = rospy.get_param(ns + "height")
+    height = rospy.get_param(ns + "height")
 
-  rate = rospy.get_param(ns + "rate")
+    rate = rospy.get_param(ns + "rate")
 
-  npzfile = rospy.get_param(ns + "npzfilepath")
+    npzfile = rospy.get_param(ns + "npzfilepath")
 
-  usecalibration = rospy.get_param(ns + 'usecalibration')
+    usecalibration = rospy.get_param(ns + 'usecalibration')
 
-  usecompressed = rospy.get_param(ns + 'usecompressed')
+    rospack = rospkg.RosPack()
 
-  rospack = rospkg.RosPack()
+    image = None
 
-  rospy.init_node("camera_node", log_level=rospy.DEBUG)
+    def handle_camera_picture(req):
+        if image is not None:
+            frame = rescaleFrame(image, scale=req.rescale)
+            srv = ServiceImage()
+            srv.image = bridge.cv2_to_imgmsg(frame, encoding='bgr8')
+            srv.retval = 1
+            return srv
+        else:
+            srv = ServiceImage()
+            srv.retval = 0
+            return srv
 
-  camera = cv2.VideoCapture(0)
-  camera.set(cv2.CAP_PROP_FRAME_WIDTH, width)
-  camera.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+    rospy.init_node("camera_node", log_level=rospy.DEBUG)
 
-  loop = rospy.Rate(rate)
+    rospy.Service('get_camera_picture', ServiceImage, handle_camera_picture)
 
-  image_pub = rospy.Publisher(ns + "camera/raw", Image, queue_size=100)
+    if use_csi_camera:
+        rospy.loginfo("Using CSICamera %s", use_csi_camera)
+        camera = CSICamera(width=width, height=height)
+    else:
+        rospy.loginfo("Using USBCamera")
+        camera = USBCamera(width=width, height=height)
 
-  image_compressed_pub = rospy.Publisher(
-    ns + "camera/compressed", CompressedImage, queue_size=100)
+    loop = rospy.Rate(rate)
 
-  bridge = CvBridge()
+    image_pub = rospy.Publisher(ns + "camera/raw", Image, queue_size=1)
 
-  path = rospack.get_path('camera') + '/' + npzfile
+    image_compressed_pub = rospy.Publisher(
+        ns + "camera/compressed", CompressedImage, queue_size=1)
 
-  if usecalibration and os.path.exists(path):
-    calibrationvalues = np.load(path)
-    newcameramatrix, roi = cv2.getOptimalNewCameraMatrix(
-      calibrationvalues['mtx'], calibrationvalues['dist'], (width, height), 1, (width, height))
+    bridge = CvBridge()
 
-  while not rospy.is_shutdown():
-    retval, image = camera.read()
+    path = rospack.get_path('camera') + '/' + npzfile
 
-    if usecalibration and newcameramatrix and calibrationvalues and roi:
-      dst = cv2.undistort(
-        image, calibrationvalues['mtx'], calibrationvalues['dist'], None, newcameramatrix)
-      x, y, w, h = roi
-      image = dst[y:y + h, x:x + w]
+    if usecalibration and os.path.exists(path):
+        calibrationvalues = np.load(path)
+        newcameramatrix, roi = cv2.getOptimalNewCameraMatrix(
+            calibrationvalues['mtx'], calibrationvalues['dist'], (width, height), 1, (width, height))
 
-    if not retval:
-      loop.sleep()
-      continue
+    while not rospy.is_shutdown():
+        if use_csi_camera:
+            try:
+                image = camera.read()
+                retval = True
+            except RuntimeError as err:
+                retval = False
+        else:
+            retval, image = camera.read()
 
-    try:
-      image_pub.publish(bridge.cv2_to_imgmsg(image, encoding='brg8'))
-      image_compressed_pub.publish(bridge.cv2_to_compressed_imgmsg(image, dst_format='png'))
-    except CvBridgeError as e:
-      print(e)
-      rospy.signal_shutdown("Error in CvBridge")
+        if usecalibration and newcameramatrix and calibrationvalues and roi:
+            dst = cv2.undistort(
+                image, calibrationvalues['mtx'], calibrationvalues['dist'], None, newcameramatrix)
+            x, y, w, h = roi
+            image = dst[y:y + h, x:x + w]
 
-    loop.sleep()
+        if not retval:
+            loop.sleep()
+            continue
+
+        try:
+            image_pub.publish(bridge.cv2_to_imgmsg(image, encoding='bgr8'))
+            image_compressed_pub.publish(bridge.cv2_to_compressed_imgmsg(image, dst_format='jpeg'))
+        except CvBridgeError as e:
+            print(e)
+            rospy.signal_shutdown("Error in CvBridge")
+
+        loop.sleep()
 
 
 if __name__ == "__main__":
-  main()
+    main()
