@@ -4,25 +4,12 @@ import numpy as np
 import os
 import rospkg
 import rospy
-from camera.srv import ServiceImage
+from camera import rescaleFrame
+from camera.srv import ServiceImage, ServiceImageResponse
 from cv_bridge import CvBridge, CvBridgeError
 from jetcam import CSICamera
 from jetcam import USBCamera
 from sensor_msgs.msg import Image, CompressedImage
-
-
-def rescaleFrame(frame, scale=0.75):
-    """
-    Resize video or image frame
-    :param frame: the video or image frame
-    :param scale: the value to rescale the image
-    :return: rescaled frame
-    """
-    width = int(frame.shape[1] * scale)
-    height = int(frame.shape[0] * scale)
-    dimensions = (width, height)
-
-    return cv2.resize(frame, dimensions, interpolation=cv2.INTER_AREA)
 
 
 def main():
@@ -47,18 +34,18 @@ def main():
     def handle_camera_picture(req):
         if image is not None:
             frame = rescaleFrame(image, scale=req.rescale)
-            srv = ServiceImage()
+            srv = ServiceImageResponse()
             srv.image = bridge.cv2_to_imgmsg(frame, encoding='bgr8')
             srv.retval = 1
             return srv
         else:
-            srv = ServiceImage()
+            srv = ServiceImageResponse()
             srv.retval = 0
             return srv
 
     rospy.init_node("camera_node", log_level=rospy.DEBUG)
 
-    rospy.Service('get_camera_picture', ServiceImage, handle_camera_picture)
+    rospy.Service(ns + 'get_camera_picture', ServiceImage, handle_camera_picture)
 
     if use_csi_camera:
         rospy.loginfo("Using CSICamera %s", use_csi_camera)

@@ -35,7 +35,7 @@ class BlobTracker:
 
         # - Blur image to remove noise
         if blur > 0:
-            blurred = cv2.GaussianBlur(image_u, (blur, blur))
+            blurred = cv2.GaussianBlur(image_u, (blur, blur), 2.7)
 
         # - Search window
         if search_window is None:
@@ -188,9 +188,15 @@ class BlobTracker:
         im_with_keypoints = cv2.drawKeypoints(image, keypoints, np.array([]), line_color,
                                               cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
 
+        im_with_keypoints_text = None
         for count, point in enumerate(keypoints):
             im_with_keypoints_text = cv2.putText(im_with_keypoints, "({}, {})".format(point.pt[0], point.pt[1]),
                                                  (10, count * 20),
                                                  cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
 
-        return im_with_keypoints_text
+        if im_with_keypoints_text is not None:
+            return im_with_keypoints_text
+        elif im_with_keypoints is not None:
+            return im_with_keypoints
+        else:
+            return image

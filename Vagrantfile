@@ -58,6 +58,9 @@ Vagrant.configure("2") do |config|
     vb.cpus = 4
 
     vb.customize ["modifyvm", :id, "--graphicscontroller", "vmsvga"]
+
+    vb.customize ["modifyvm", :id, "--usb", "on"]
+    vb.customize ["modifyvm", :id, "--usbehci", "on"]
   end
   #
   # View the documentation for the provider you are using for more

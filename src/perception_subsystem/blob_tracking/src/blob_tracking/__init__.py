@@ -1,2 +1,1 @@
-from blob_tracking.blob_tracker import BlobTracker
-from blob_tracking.camera_sensor import CameraSensor
+from .blob_tracker import BlobTracker

@@ -7,7 +7,7 @@ project(blob_tracking)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-find_package(catkin REQUIRED dynamic_reconfigure)
+find_package(catkin REQUIRED dynamic_reconfigure rospy)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -157,6 +157,7 @@ include_directories(
 catkin_install_python(PROGRAMS
   nodes/blob_tracking_node.py
   nodes/blob_camera_follow_node.py
+  nodes/blob_hsv_calibrator_node.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

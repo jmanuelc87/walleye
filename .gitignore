@@ -64,6 +64,7 @@ CATKIN_IGNORE
 build_*/
 cc_internals/
 install_*/
+install/
 
 # logs
 log/
