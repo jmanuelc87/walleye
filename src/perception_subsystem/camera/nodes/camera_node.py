@@ -16,6 +16,7 @@ def main():
     ns = rospy.get_namespace()
 
     use_csi_camera = rospy.get_param(ns + "use_csi_camera")
+    use_cv2_camera = rospy.get_param(ns + "use_cv2_camera")
 
     width = rospy.get_param(ns + "width")
 
@@ -51,8 +52,12 @@ def main():
         rospy.loginfo("Using CSICamera %s", use_csi_camera)
         camera = CSICamera(width=width, height=height)
     else:
-        rospy.loginfo("Using USBCamera")
-        camera = USBCamera(width=width, height=height)
+        if not use_cv2_camera:
+            rospy.loginfo("Using USBCamera")
+            camera = USBCamera(width=width, height=height)
+        else:
+            rospy.loginfo("Using CV2 Camera")
+            camera = cv2.VideoCapture(0)
 
     loop = rospy.Rate(rate)
 
@@ -78,7 +83,13 @@ def main():
             except RuntimeError as err:
                 retval = False
         else:
-            retval, image = camera.read()
+            if not use_cv2_camera:
+                retval, image = camera.read()
+            else:
+                retval, image = camera.read()
+
+                if not retval:
+                    raise RuntimeError('Could not read Image from camera')
 
         if usecalibration and newcameramatrix and calibrationvalues and roi:
             dst = cv2.undistort(
