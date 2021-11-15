@@ -58,7 +58,7 @@ while not rospy.is_shutdown():
     # get an Image
     cv_image = camera_service.get_image()
 
-    cv_image = rescaleFrame(cv_image, scale=0.5)
+    cv_image = rescaleFrame(cv_image, scale=0.8)
 
     cv2.imshow('Blurred Image', cv2.GaussianBlur(cv_image, (5, 5), 2.7))
 
@@ -66,14 +66,29 @@ while not rospy.is_shutdown():
 
     cv2.imshow('Blob Mask', mask)
 
-    for keypoint in keypoints:
+    sorted_keypoints = sorted(keypoints, reverse=True, key=lambda e: e.size)
+
+    if len(sorted_keypoints) > 0:
+
+        keypoint = sorted_keypoints[0]
+
         x, y = blob_tracker.get_blob_relative_position(cv_image, keypoint)
         blob_size = keypoint.size
         blob_tracker.publish_blob(x, y, blob_size)
 
-    image_with_keypoints = blob_tracker.draw_keypoints(cv_image, keypoints)
+        image_with_keypoints = blob_tracker.draw_keypoints(cv_image, [keypoint])
 
-    cv2.imshow('Blob HSV Calibrator', image_with_keypoints)
+        cv2.imshow("Blob with keypoints", image_with_keypoints)
+
+    # for keypoint in keypoints:
+    #    x, y = blob_tracker.get_blob_relative_position(cv_image, keypoint)
+    #    blob_size = keypoint.size
+    #    blob_tracker.publish_blob(x, y, blob_size)
+    #
+    # image_with_keypoints = blob_tracker.draw_keypoints(cv_image, keypoints)
+    # cv2.imshow("Blob with keypoints", image_with_keypoints)
+
+    cv2.imshow('Blob HSV Calibrator', cv_image)
 
     if cv2.waitKey(10) & 0xFF == ord('q'):
         break

@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 import rospy
 from blob_tracking import BlobTracker
-from blob_tracking.cfg import BlobTrackingConfig
+from blob_tracking.cfg import HSVLimitsConfig
 from camera import CameraSensor
 from cv_bridge import CvBridge, CvBridgeError
 from dynamic_reconfigure.server import Server
@@ -18,7 +18,7 @@ ns = rospy.get_namespace()
 
 
 def reconfigure_callback(config, level):
-    rospy.loginfo("Reconfigure Request: %s", config)
+    rospy.loginfo("Reconfigure Request")
     # Assign configuration values
     hsv_max[0] = config.h_max
     hsv_max[1] = config.s_max
@@ -26,7 +26,7 @@ def reconfigure_callback(config, level):
     hsv_min[0] = config.h_min
     hsv_min[1] = config.s_min
     hsv_min[2] = config.v_min
-    rospy.loginfo("%s, %s", hsv_max, hsv_min)
+    rospy.loginfo("hsv_max: %s, hsv_min: %s", hsv_max, hsv_min)
     return config
 
 
@@ -36,7 +36,7 @@ pub_image = rospy.Publisher(ns + "camera/keypoints/compressed", CompressedImage,
 
 rospy.init_node("blob_tracking_node", log_level=rospy.DEBUG)
 
-srv = Server(BlobTrackingConfig, reconfigure_callback)
+srv = Server(HSVLimitsConfig, reconfigure_callback)
 
 blob_tracker = BlobTracker()
 serviceImage = CameraSensor()
@@ -55,10 +55,18 @@ while not rospy.is_shutdown():
     keypoints, _ = blob_tracker.blob_detect(cv_image, tuple(hsv_min), tuple(hsv_max), blur=3, blob_params=None,
                                             search_window=window)
 
-    for keypoint in keypoints:
+    sorted_keypoints = sorted(keypoints, reverse=True, key=lambda e: e.size)
+
+    keypoints = []
+
+    if len(sorted_keypoints) > 0:
+        keypoint = sorted_keypoints[0]
+
         x, y = blob_tracker.get_blob_relative_position(cv_image, keypoint)
         blob_size = keypoint.size
         blob_tracker.publish_blob(x, y, blob_size)
+
+        keypoints = [keypoint]
 
     image_with_keypoints = blob_tracker.draw_keypoints(cv_image, keypoints)
 
