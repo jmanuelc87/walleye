@@ -4,6 +4,7 @@ from blob_tracking import BlobTracker
 from blob_tracking.cfg import HSVLimitsConfig
 from camera import CameraSensor
 from cv_bridge import CvBridge, CvBridgeError
+from detect_publish import detect_publish
 from dynamic_reconfigure.server import Server
 from sensor_msgs.msg import CompressedImage
 
@@ -52,23 +53,7 @@ while not rospy.is_shutdown():
     cv_image = serviceImage.get_image()
 
     # Detect blobs
-    keypoints, _ = blob_tracker.blob_detect(cv_image, tuple(hsv_min), tuple(hsv_max), blur=3, blob_params=None,
-                                            search_window=window)
-
-    sorted_keypoints = sorted(keypoints, reverse=True, key=lambda e: e.size)
-
-    keypoints = []
-
-    if len(sorted_keypoints) > 0:
-        keypoint = sorted_keypoints[0]
-
-        x, y = blob_tracker.get_blob_relative_position(cv_image, keypoint)
-        blob_size = keypoint.size
-        blob_tracker.publish_blob(x, y, blob_size)
-
-        keypoints = [keypoint]
-
-    image_with_keypoints = blob_tracker.draw_keypoints(cv_image, keypoints)
+    image_with_keypoints = detect_publish(cv_image, hsv_min, hsv_max, blob_tracker)
 
     try:
         pub_image.publish(bridge.cv2_to_compressed_imgmsg(image_with_keypoints, dst_format='jpeg'))

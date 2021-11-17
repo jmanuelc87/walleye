@@ -4,6 +4,7 @@ import numpy as np
 import rospy
 from blob_tracking import BlobTracker
 from camera import CameraSensor, rescaleFrame
+from detect_publish import detect_publish
 
 
 def nothing(x):
@@ -40,6 +41,9 @@ loop_rate = rospy.Rate(30)
 
 rospy.loginfo('Starting...')
 
+lower = np.array([0, 0, 0])
+upper = np.array([180, 255, 255])
+
 while not rospy.is_shutdown():
     # Get current positions of all trackbars
     hMin = cv2.getTrackbarPos('Hue Min', 'Blob HSV Calibrator')
@@ -51,7 +55,7 @@ while not rospy.is_shutdown():
 
     if (phMin != hMin) | (psMin != sMin) | (pvMin != vMin) | (phMax != hMax) | (psMax != sMax) | (pvMax != vMax):
         print("(hMin = %d , sMin = %d, vMin = %d), (hMax = %d , sMax = %d, vMax = %d)" % (
-        hMin, sMin, vMin, hMax, sMax, vMax))
+            hMin, sMin, vMin, hMax, sMax, vMax))
         lower = np.array([hMin, sMin, vMin])
         upper = np.array([hMax, sMax, vMax])
 
@@ -60,35 +64,9 @@ while not rospy.is_shutdown():
 
     cv_image = rescaleFrame(cv_image, scale=0.8)
 
-    cv2.imshow('Blurred Image', cv2.GaussianBlur(cv_image, (5, 5), 2.7))
+    detect_publish(cv_image, lower, upper, blob_tracker, show_image=True)
 
-    keypoints, mask = blob_tracker.blob_detect(cv_image, hsv_max=upper, hsv_min=lower, blur=5)
-
-    cv2.imshow('Blob Mask', mask)
-
-    sorted_keypoints = sorted(keypoints, reverse=True, key=lambda e: e.size)
-
-    if len(sorted_keypoints) > 0:
-
-        keypoint = sorted_keypoints[0]
-
-        x, y = blob_tracker.get_blob_relative_position(cv_image, keypoint)
-        blob_size = keypoint.size
-        blob_tracker.publish_blob(x, y, blob_size)
-
-        image_with_keypoints = blob_tracker.draw_keypoints(cv_image, [keypoint])
-
-        cv2.imshow("Blob with keypoints", image_with_keypoints)
-
-    # for keypoint in keypoints:
-    #    x, y = blob_tracker.get_blob_relative_position(cv_image, keypoint)
-    #    blob_size = keypoint.size
-    #    blob_tracker.publish_blob(x, y, blob_size)
-    #
-    # image_with_keypoints = blob_tracker.draw_keypoints(cv_image, keypoints)
-    # cv2.imshow("Blob with keypoints", image_with_keypoints)
-
-    cv2.imshow('Blob HSV Calibrator', cv_image)
+    cv2.imshow('Blob HSV Calibrator', blob_tracker.draw_frame(cv_image))
 
     if cv2.waitKey(10) & 0xFF == ord('q'):
         break

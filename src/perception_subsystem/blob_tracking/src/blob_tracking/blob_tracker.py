@@ -19,38 +19,59 @@ class BlobTracker:
                     hsv_min,
                     hsv_max,
                     blur=0,
+                    sigma=0,
+                    kernel=(5, 5),
                     blob_params=None,
-                    search_window=None):
+                    search_window=None,
+                    show_image=False):
         """
         :param image: The frame
         :param hsv_min: minimum threshold of the hsv filter [h_min, s_min, v_min]
         :param hsv_max: maximum threshold of the hsv filter [h_max, s_max, v_max]
         :param blur: blur value (default 0)
+        :param sigma: sigma value (default 0)
+        :param kernel: kernel value for erode & dilate operators
         :param blob_params: blob parameters (default None)
         :param search_window: window where to search as [x_min, y_min, x_max, y_max] adimensional (0.0 to 1.0) starting from top left corner
+        :param show_image: shows the current frame in a opencv window
         :return:
         """
 
+        # converts image to use it using only gpu
         image_u = cv2.UMat(image)
 
         # - Blur image to remove noise
-        if blur > 0:
-            blurred = cv2.GaussianBlur(image_u, (blur, blur), 2.7)
+        if blur > 0 and sigma > 0:
+            blurred = cv2.GaussianBlur(image_u, (blur, blur), sigma)
+        else:
+            blurred = cv2.Blur(image_u, (5, 5))
 
-        # - Search window
-        if search_window is None:
-            search_window = [0.0, 0.0, 1.0, 1.0]
+        if show_image:
+            cv2.imshow("Blurred Image", blurred)
+
+        # Erode image
+        eroded = cv2.erode(blurred, kernel, iterations=2)
+
+        if show_image:
+            cv2.imshow("Eroded Image", eroded)
+
+        dilatated = cv2.dilate(eroded, kernel, iterations=2)
+
+        if show_image:
+            cv2.imshow("Dilatated Image", dilatated)
 
         # - Convert image from BGR to HSV
-        hsv = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
+        hsv = cv2.cvtColor(dilatated, cv2.COLOR_BGR2HSV)
 
         # - Apply HSV threshold
         mask = cv2.inRange(hsv, hsv_min, hsv_max)
 
-        # - dilate makes the in range areas larger
-        mask = cv2.dilate(mask, None, iterations=2)
-
+        # converts back image for using cpu only
         mask = cv2.UMat.get(mask)
+
+        # - Search window
+        if search_window is None:
+            search_window = [0.0, 0.0, 1.0, 1.0]
 
         # - Cut the image using the search mask
         mask = self.apply_search_window(mask, search_window)
@@ -64,9 +85,6 @@ class BlobTracker:
         # - Apply blob detection
         detector = cv2.SimpleBlobDetector_create(params)
 
-        # Reverse the mask: blobs are black on white
-        # reversemask = 255 - mask
-
         keypoints = detector.detect(mask)
 
         return keypoints, mask
@@ -75,7 +93,7 @@ class BlobTracker:
         # Set up the SimpleBlobdetector with default parameters.
         params = cv2.SimpleBlobDetector_Params()
 
-        # Detect light blobs
+        # Detect light blobs, don't need to reverse the mask
         params.blobColor = 255
 
         # Change thresholds
@@ -84,7 +102,7 @@ class BlobTracker:
 
         # Filter by Area.
         params.filterByArea = True
-        params.minArea = 30
+        params.minArea = 45
         params.maxArea = 20000
 
         # Filter by Circularity
@@ -97,7 +115,7 @@ class BlobTracker:
 
         # Filter by Inertia
         params.filterByInertia = True
-        params.minInertiaRatio = 0.01
+        params.minInertiaRatio = 0.125
 
         return params
 
@@ -188,17 +206,4 @@ class BlobTracker:
         im_with_keypoints = cv2.drawKeypoints(image, keypoints, np.array([]), line_color,
                                               cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
 
-        # im_with_keypoints_text = None
-        # for count, point in enumerate(keypoints):
-        #     im_with_keypoints_text = cv2.putText(im_with_keypoints, "({}, {})".format(point.pt[0], point.pt[1]),
-        #                                          (10, 20),
-        #                                          cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
-
         return im_with_keypoints
-
-        # if im_with_keypoints_text is not None:
-        #     return im_with_keypoints_text
-        # elif im_with_keypoints is not None:
-        #     return im_with_keypoints
-        # else:
-        #     return image
