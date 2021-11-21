@@ -3,4 +3,6 @@
     <rosparam file="$(find blob_tracking)/config/blob_tracking_config.yml" command="load"/>
 
     <node pkg="blob_tracking" type="blob_tracking_node.py" name="blob_tracking_node" ns="/walleye" output="screen"/>
+
+    <node pkg="blob_tracking" type="blob_camera_follow_node.py" name="blob_follow_node" ns="/walleye" output="screen"/>
 </launch>

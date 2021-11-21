@@ -12,7 +12,7 @@ hsv_min = [0, 255, 255]
 hsv_max = [23, 255, 255]
 
 # We define the detection area [x_min, y_min, x_max, y_max] adimensional (0.0 to 1.0) starting from top left corner
-window = [0.1, 0.1, 0.9, 0.9]
+window = [0.05, 0.05, 0.95, 0.95]
 
 ns = rospy.get_namespace()
 

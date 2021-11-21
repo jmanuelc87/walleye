@@ -10,7 +10,7 @@ class BlobFollower:
         rospy.loginfo("Initializing Blob Follower...")
 
         self.move_rate = rospy.Rate(10)
-        self.acceptable_error = 0.2
+        self.acceptable_error = 0.185
 
         self.current_yaw = 180.0
         self.current_pitch = 150.0
@@ -22,8 +22,11 @@ class BlobFollower:
         self.ns = rospy.get_namespace()
 
         self.point_blob_topic = self.ns + "blob/point_blob"
+        self.point_blob_service = self.ns + "blob/point_reset_service"
         self._check_blob_point_ready()
         rospy.Subscriber(self.point_blob_topic, Point, self.point_blob_callback)
+        rospy.Service(self.point_blob_service, Point, self.point_reset_blob_service_callback)
+        rospy.loginfo("Started: yaw: %s, pitch: %s", self.current_yaw, self.current_pitch)
 
     def _check_blob_point_ready(self):
         self.point_blob = None
@@ -37,20 +40,25 @@ class BlobFollower:
         return self.point_blob
 
     def point_blob_callback(self, msg):
-        rospy.loginfo("%s %s %s", msg.x, msg.y, msg.z)
-        # if msg.x > self.acceptable_error:
-        #     self.pan_obj.data += 1.0
-        # elif msg.x < -1 * self.acceptable_error:
-        #     self.pan_obj.data -= 1.0
-        # else:
-        #     self.pan_obj.data = 180.0
-        #
-        # if msg.y > self.acceptable_error:
-        #     self.tilt_obj.data += 1.0
-        # elif msg.y < -1 * self.acceptable_error:
-        #     self.tilt_obj.data -= 1.0
-        # else:
-        #     self.tilt_obj.data = 150.0
+        rospy.logdebug("(%s,%s,%s)", msg.x, msg.y, msg.z)
+
+        if msg.x > self.acceptable_error:
+            self.pan_obj.data += 1.0
+        elif msg.x < -1 * self.acceptable_error:
+            self.pan_obj.data -= 1.0
+
+        if msg.y > self.acceptable_error:
+            self.tilt_obj.data += 1.0
+        elif msg.y < -1 * self.acceptable_error:
+            self.tilt_obj.data -= 1.0
+
+        rospy.loginfo("yaw: %s, pitch: %s", self.current_yaw, self.current_pitch)
+
+    def point_reset_blob_service_callback(self, msg):
+        # ignore message for now
+        rospy.loginfo("Reset pitch and yaw angles")
+        self.current_pitch = 150.0
+        self.current_yaw = 180.0
 
     def loop(self):
         while not rospy.is_shutdown():
